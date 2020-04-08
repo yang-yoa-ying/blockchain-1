@@ -1,66 +1,70 @@
 pragma solidity ^0.6.0;
-
 contract bank{
-    
-    mapping (string => address) public students; //學號映射到地址
-    mapping (address => int256) private balances; //地址映射到存款金額
-    mapping (address => bool) private banckenroll;
+    mapping(address => uint256) public balances; //地址映射到存款金額
+    mapping(string => address) public students;//學號映射到地址
     address payable public owner; //銀行的擁有者，會在constructor做設定
-    int256 private banckbalances;
+    mapping(address => uint256) public count;
+    uint256 private a;
+
+    constructor() public{
+        owner = owner = msg.sender;
+    } //設定owner為創立合約的人
     
-    //設定owner為創立合約的人
-    constructor() public {
-        owner = msg.sender;
-    }
-    
-    //透過students把學號映射到使用者的地址
-    function enroll(string memory stduentId) public{
-        require(banckenroll[msg.sender] != true,'已註冊過');
-        students[stduentId] = msg.sender;
-        banckenroll[msg.sender] = true;
-    }
-    
-    //從balances回傳使用者的帳戶餘額
-    function getBalance() external view returns (int256){
-        return balances[msg.sender];
-    }
-    
-    //可以讓使用者call這個函數把錢存進合約地址，並且在balances中紀錄使用者的帳戶金額
     function deposit() public payable{
-        // msg.sender.transfer(msg.value);
-        require(banckenroll[msg.sender] == true,'尚未註冊');
-        balances[msg.sender] += int256(msg.value);
-        banckbalances += int256(msg.value);
+        require( msg.value > 0, "沒有錢匯入啊");
+        balances[msg.sender] += msg.value;
+        //可以讓使用者call這個函數把錢存進合約地址，並且在balances中紀錄使用者的帳戶金額
     }
     
-    //回傳銀行合約的所有餘額，設定為只有owner才能呼叫成功
-    function getBankBalance() external view returns(int256){
-        require(owner == msg.sender ,'沒有權限');
-        return banckbalances;
+    
+    function withdraw(uint256 wantmoney)public payable{
+        require(wantmoney <= balances[msg.sender] , "沒有足夠的錢錢");
+        balances[msg.sender] =balances[msg.sender] - wantmoney;
+        msg.sender.transfer(wantmoney);
+        //可以讓使用者從合約提錢，這邊需要去確認合約裡的餘額 >= 想提的金額
     }
     
-    //可以讓使用者從合約提錢，這邊需要去確認合約裡的餘額 >= 想提的金額
-    function withdraw(uint248 withdrawAmount) public payable{
-        require(balances[msg.sender] >= withdrawAmount ,'餘額不足');
-        banckbalances -= int256(withdrawAmount);
-        balances[msg.sender] -= int256(withdrawAmount);
-        msg.sender.transfer(withdrawAmount);
+    function transfer (uint256 turnmoney,address toaddresss) public payable{
+        require(turnmoney <= balances[msg.sender] , "沒有足夠的錢錢");
+        balances[msg.sender] = balances[msg.sender] - turnmoney;
+        balances[toaddresss] += turnmoney;
+        //可以讓使用者從合約轉帳給某個地址，這邊需要去確認合約裡的餘額 >= 想轉的金額
+        //實現的是銀行內部轉帳，也就是說如果轉帳成功balances的目標地址會增加轉帳金額
+    }
+
+    function getBalance()public view returns(uint256){
+        return balances[msg.sender];
+        //從balances回傳使用者的銀行帳戶餘額
     }
     
-    //可以讓使用者從合約轉帳給某個地址，這邊需要去確認合約裡的餘額 >= 想轉的金額
-    //實現的是銀行內部轉帳，也就是說如果轉帳成功balances的目標地址會增加轉帳金額
-    function transfer(uint248 transferAmount, address studentAddress) public payable{
-        require(balances[msg.sender] >= transferAmount ,'餘額不足');
-        balances[msg.sender] -= int256(transferAmount);
-        balances[studentAddress] += int256(transferAmount);
+    function getBankBalance()public view returns(uint256){
+        require(owner == msg.sender,"需要為owner喔");
+        return address(this).balance;
+        //回傳銀行合約的所有餘額，設定為只有owner才能呼叫成功
     }
     
-    //當觸發fallback時，檢查觸發者是否為owner，是則自殺合約，把合約剩餘的錢轉給owner
-    fallback() external {
-        require(owner == msg.sender,'Permission denied');
+    function enroll(string memory studentnumber)public{
+        students[studentnumber] = msg.sender;
+    }
+    
+    function fallback() public{
+        require(owner == msg.sender,"需要為owner喔");
         selfdestruct(owner);
+        //當觸發fallback時，檢查觸發者是否為owner，是則自殺合約，把合約剩餘的錢轉給owner
     }
+    
+    function lendmoney (uint256 lendhowmuchmoney) public payable{
+        a = address(this).balance - balances[msg.sender];
+        require(lendhowmuchmoney <= a , "銀行沒錢借" );
+        balances[msg.sender] += lendhowmuchmoney;
+        count[msg.sender] += lendhowmuchmoney;
+        //借錢功能
+    }
+    
+     function howmuchtolend()public view returns(uint256){
+        return count[msg.sender];
+        //回傳使用者的借款
+    }
+}
 
-}    
-
-
+//參考資料:https://ithelp.ithome.com.tw/articles/10205145
